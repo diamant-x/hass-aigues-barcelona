@@ -6,7 +6,7 @@ import logging
 import requests
 
 from .const import API_COOKIE_TOKEN
-from .const import API_HOST
+from .const import API_HOSTS
 from .version import VERSION
 
 TIMEOUT = 60
