@@ -1,5 +1,5 @@
 ---
-# Service call documentation for Aigues de Barcelona integration
+# Documentación de servicios para la integración de Aigües de Barcelona y Sorea
 
 reset_and_refresh_data:
   name: Reset and Refresh Data

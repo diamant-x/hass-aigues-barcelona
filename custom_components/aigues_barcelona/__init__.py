@@ -1,4 +1,4 @@
-"""Integration for Aigues de Barcelona."""
+"""Integración para Aigües de Barcelona y Sorea."""
 
 from __future__ import annotations
 
