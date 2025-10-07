@@ -16,14 +16,14 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 class AiguesApiClient:
     def __init__(
-        self, username, password, contract=None, session: requests.Session = None
+        self, username, password, contract=None, provider="agbar", session: requests.Session = None, cookie=None
     ):
+        from .const import API_HOSTS
         if session is None:
             session = requests.Session()
         self.cli = session
-        self.api_host = f"https://{API_HOST}"
-        # https://www.aiguesdebarcelona.cat/o/ofex-theme/js/chunk-vendors.e5935b72.js
-        # https://www.aiguesdebarcelona.cat/o/ofex-theme/js/app.0499d168.js
+        self.api_host = f"https://{API_HOSTS.get(provider, API_HOSTS['agbar'])}"
+        self.provider = provider
         self.headers = {
             "Ocp-Apim-Subscription-Key": "3cca6060fee14bffa3450b19941bd954",
             "Ocp-Apim-Trace": "false",
@@ -34,6 +34,7 @@ class AiguesApiClient:
         self._password = password
         self._contract = contract
         self.last_response = None
+        self._cookie = cookie
 
     def _generate_url(self, path, query) -> str:
         query_proc = ""
@@ -223,36 +224,136 @@ class AiguesApiClient:
     def consumptions(
         self, date_from, date_to=None, contract=None, user=None, frequency="HOURLY"
     ):
-        if user is None:
-            user = self._return_token_field("name")
-        if contract is None:
-            contract = self.first_contract
-        if frequency not in ["HOURLY", "DAILY"]:
-            raise ValueError(f"Invalid {frequency=}")
-
-        if date_to is None:
-            date_to = date_from + datetime.timedelta(days=1)
-        if isinstance(date_from, datetime.date):
-            date_from = date_from.strftime("%d-%m-%Y")
-        if isinstance(date_to, datetime.date):
-            date_to = date_to.strftime("%d-%m-%Y")
-
-        path = "/ofex-water-consumptions-api/meter/consumptions"
-        query = {
-            "consumptionFrequency": frequency,
-            "contractNumber": contract,
-            "clientId": user,
-            "userId": user,
-            "lang": "ca",
-            "fromDate": date_from,
-            "toDate": date_to,
-            "showNegativeValues": "false",
-        }
-
-        r = self._query(path, query)
-
-        data = r.json().get("data")
-        return data
+        if self.provider == "sorea":
+            import requests
+            if date_to is None:
+                date_to = date_from + datetime.timedelta(days=1)
+            if isinstance(date_from, datetime.date):
+                date_from = date_from.strftime("%d/%m/%Y")
+            if isinstance(date_to, datetime.date):
+                date_to = date_to.strftime("%d/%m/%Y")
+            url = f"{self.api_host}/es/group/soreaonline/mis-consumos"
+            params = {
+                "p_p_id": "MisConsumos",
+                "p_p_lifecycle": "2",
+                "p_p_state": "normal",
+                "p_p_mode": "view",
+                "p_p_cacheability": "cacheLevelPage",
+                "_MisConsumos_op": "buscarConsumosHoraria",
+                "_MisConsumos_fechaInicio": date_from,
+                "_MisConsumos_fechaFin": date_to,
+                "_MisConsumos_inicio": "0",
+                "_MisConsumos_fin": "9",
+            }
+            headers = {
+                "User-Agent": self.headers["User-Agent"],
+                "Accept": "*/*",
+                "X-Requested-With": "XMLHttpRequest",
+            }
+            cookies = {}
+            if self._cookie:
+                cookies["JSESSIONID"] = self._cookie
+            resp = requests.get(url, params=params, headers=headers, cookies=cookies, timeout=TIMEOUT)
+            self.last_response = resp.text
+            try:
+                json_resp = resp.json()
+                consumos = json_resp.get("consumos", [])
+                # Normalizar formato: convertir coma decimal a punto y fechas a ISO
+                result = []
+                for c in consumos:
+                    lectura = float(str(c.get("lectura", "0")).replace(",", "."))
+                    consumo = float(str(c.get("consumo", "0")).replace(",", "."))
+                    fecha = c.get("fechaConsumo", "")
+                    hora = c.get("horaConsumo", "")
+                    # Convertir fecha y hora a ISO
+                    try:
+                        dt = datetime.datetime.strptime(f"{fecha} {hora}", "%d %b %Y %H:%M")
+                        dt_iso = dt.isoformat()
+                    except Exception:
+                        dt_iso = f"{fecha} {hora}"
+                    result.append({
+                        "accumulatedConsumption": lectura,
+                        "consumption": consumo,
+                        "datetime": dt_iso,
+                        "raw": c
+                    })
+                return result
+            except Exception:
+                return None
+        # ...existing code...
+    def contracts(self, user=None, status=["ASSIGNED", "PENDING"]):
+        if self.provider == "sorea":
+            import requests
+            url = f"{self.api_host}/es/group/soreaonline/mis-contratos"
+            params = {
+                "p_p_id": "ContractDetails",
+                "p_p_lifecycle": "2",
+                "p_p_state": "normal",
+                "p_p_mode": "view",
+                "p_p_cacheability": "cacheLevelPage",
+                "_ContractDetails_op": "loadContratos",
+                "_ContractDetails_offset": "0",
+                "_ContractDetails_limit": "10",
+            }
+            headers = {
+                "User-Agent": self.headers["User-Agent"],
+                "Accept": "*/*",
+                "X-Requested-With": "XMLHttpRequest",
+            }
+            cookies = {}
+            if self._cookie:
+                cookies["JSESSIONID"] = self._cookie
+            resp = requests.get(url, params=params, headers=headers, cookies=cookies, timeout=TIMEOUT)
+            self.last_response = resp.text
+            try:
+                json_resp = resp.json()
+                return json_resp.get("contractToShow", [])
+            except Exception:
+                return None
+        # ...existing code...
+    def invoices(self, contract=None, user=None, last_months=36, mode="ALL"):
+        if self.provider == "sorea":
+            import requests
+            url = f"{self.api_host}/es/group/soreaonline/mis-facturas"
+            params = {
+                "p_p_id": "MisFacturas",
+                "p_p_lifecycle": "2",
+                "p_p_state": "normal",
+                "p_p_mode": "view",
+                "p_p_cacheability": "cacheLevelPage",
+                "_MisFacturas_op": "loadFacturas",
+                "_MisFacturas_numeroContrato": contract or "",
+                "_MisFacturas_inicio": "0",
+                "_MisFacturas_fin": str(last_months-1),
+                "_MisFacturas_numeroFacturaBusqueda": "",
+                "_MisFacturas_estadoBusqueda": "",
+                "_MisFacturas_fechaEmisionDesdeBusqueda": "",
+                "_MisFacturas_fechaEmisionHastaBusqueda": "",
+                "_MisFacturas_importeDesdeBusqueda": "",
+                "_MisFacturas_importeHastaBusqueda": "",
+                "_MisFacturas_12-gotas": "false",
+            }
+            headers = {
+                "User-Agent": self.headers["User-Agent"],
+                "Accept": "*/*",
+                "X-Requested-With": "XMLHttpRequest",
+            }
+            cookies = {}
+            if self._cookie:
+                cookies["JSESSIONID"] = self._cookie
+            resp = requests.get(url, params=params, headers=headers, cookies=cookies, timeout=TIMEOUT)
+            self.last_response = resp.text
+            try:
+                json_resp = resp.json()
+                return json_resp.get("facturas", [])
+            except Exception:
+                return None
+        # ...existing code...
+    def profile(self, user=None):
+        if self.provider == "sorea":
+            # No disponible para Sorea
+            return None
+        # ...existing code...
 
     def consumptions_week(self, date_from: datetime.date, contract=None, user=None):
         if date_from is None:

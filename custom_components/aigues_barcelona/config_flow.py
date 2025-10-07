@@ -16,18 +16,20 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .api import AiguesApiClient
 from .const import API_ERROR_TOKEN_REVOKED
-from .const import CONF_CONTRACT
-from .const import DOMAIN
+from .const import CONF_CONTRACT, CONF_PROVIDER, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+
 ACCOUNT_CONFIG_SCHEMA = vol.Schema(
     {
+        vol.Required(CONF_PROVIDER, default="agbar"): vol.In(["agbar", "sorea"]),
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
     }
 )
 TOKEN_SCHEMA = vol.Schema({vol.Required(CONF_TOKEN): cv.string})
+COOKIE_SCHEMA = vol.Schema({vol.Required("cookie"): cv.string})
 
 
 def check_valid_nif(username: str) -> bool:
@@ -54,15 +56,24 @@ def check_valid_nif(username: str) -> bool:
 async def validate_credentials(
     hass: HomeAssistant, data: dict[str, Any]
 ) -> dict[str, Any]:
+    provider = data.get(CONF_PROVIDER, "agbar")
     username = data[CONF_USERNAME]
     password = data[CONF_PASSWORD]
     token = data.get(CONF_TOKEN)
+    cookie = data.get("cookie")
+
+    if provider == "sorea":
+        # Para Sorea, solo validamos que la cookie esté presente
+        if not cookie:
+            raise InvalidAuth
+        # Aquí podrías agregar validación extra si lo deseas
+        return {"cookie": cookie}
 
     if not check_valid_nif(username):
         raise InvalidUsername
 
     try:
-        api = AiguesApiClient(username, password)
+        api = AiguesApiClient(username, password, provider=provider)
         if token:
             api.set_token(token)
         else:
@@ -179,13 +190,27 @@ class AiguesBarcelonaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         errors = {}
 
+        provider = user_input.get(CONF_PROVIDER, "agbar")
+
+        if provider == "sorea" and not user_input.get("cookie"):
+            # Pedir la cookie si no está presente
+            return self.async_show_form(
+                step_id="cookie", data_schema=COOKIE_SCHEMA, errors=errors
+            )
+
         try:
             self.stored_input = user_input
             info = await validate_credentials(self.hass, user_input)
             _LOGGER.debug(f"Result is {info}")
             if not info:
                 raise InvalidAuth
-            contracts = info[CONF_CONTRACT]
+            contracts = info.get(CONF_CONTRACT)
+
+            if provider == "sorea":
+                # Crear la entrada con la cookie
+                return self.async_create_entry(
+                    title="Sorea (cookie manual)", data={**user_input, **info}
+                )
 
             await self.async_set_unique_id(user_input["username"])
             self._abort_if_unique_id_configured()

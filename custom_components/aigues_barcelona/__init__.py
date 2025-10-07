@@ -20,13 +20,19 @@ from .service import async_setup as setup_service
 PLATFORMS = [Platform.SENSOR]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
-    # TODO Change after fixing Recaptcha.
-    api = AiguesApiClient(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    provider = entry.data.get("provider", "agbar")
+    cookie = entry.data.get("cookie")
+    api = AiguesApiClient(
+        entry.data[CONF_USERNAME],
+        entry.data[CONF_PASSWORD],
+        provider=provider,
+        cookie=cookie,
+    )
     api.set_token(entry.data.get(CONF_TOKEN))
 
-    if api.is_token_expired():
+    if provider != "sorea" and api.is_token_expired():
         await hass.config_entries.flow.async_init(
             DOMAIN,
             context={"source": SOURCE_REAUTH},
@@ -35,10 +41,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
         raise ConfigEntryAuthFailed
 
-    # try:
-    #    await hass.async_add_executor_job(api.login)
-    # except:
-    #    raise ConfigEntryNotReady
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await setup_service(hass, entry)
+    return True
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

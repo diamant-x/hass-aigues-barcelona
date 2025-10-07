@@ -61,15 +61,20 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
 
     _LOGGER.info("calling async_setup_entry")
 
+
     username = config_entry.data[CONF_USERNAME]
     password = config_entry.data[CONF_PASSWORD]
     contracts = config_entry.data[CONF_CONTRACT]
     token = config_entry.data.get(CONF_TOKEN)
+    provider = config_entry.data.get("provider", "agbar")
+    cookie = config_entry.data.get("cookie")
 
     contadores = list()
 
     for contract in contracts:
-        coordinator = ContratoAgua(hass, username, password, contract, token=token)
+        coordinator = ContratoAgua(
+            hass, username, password, contract, token=token, provider=provider, cookie=cookie
+        )
         contadores.append(ContadorAgua(coordinator))
 
     # postpone first refresh to speed up startup
@@ -91,6 +96,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     return True
 
 
+
 class ContratoAgua(TimestampDataUpdateCoordinator):
     def __init__(
         self,
@@ -99,6 +105,8 @@ class ContratoAgua(TimestampDataUpdateCoordinator):
         password: str,
         contract: str,
         token: str = None,
+        provider: str = "agbar",
+        cookie: str = None,
         prev_data=None,
     ) -> None:
         """Initialize the data handler."""
@@ -119,7 +127,9 @@ class ContratoAgua(TimestampDataUpdateCoordinator):
         hass.data[DOMAIN][self.contract]["coordinator"] = self
 
         # the api object
-        self._api = AiguesApiClient(username, password, contract)
+        self._api = AiguesApiClient(
+            username, password, contract, provider=provider, cookie=cookie
+        )
         if token:
             self._api.set_token(token)
 

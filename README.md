@@ -1,17 +1,37 @@
-# Aigües de Barcelona para Home Assistant
 
-Este `custom_component` permite importar los datos de [Aigües de Barcelona](https://www.aiguesdebarcelona.cat/) en [Home Assistant](https://www.home-assistant.io/).
+# Aigües de Barcelona y Sorea para Home Assistant
+
+
+Este `custom_component` permite importar los datos de [Aigües de Barcelona](https://www.aiguesdebarcelona.cat/) **y Sorea** ([soreaonline.cat](https://www.soreaonline.cat/)) en [Home Assistant](https://www.home-assistant.io/).
+## Sorea: integración experimental
+
+Si tu proveedor es Sorea, la integración te pedirá que introduzcas manualmente la cookie de sesión (`JSESSIONID`) extraída desde el navegador.
+
+### ¿Cómo obtener la cookie?
+1. Inicia sesión en [soreaonline.cat](https://www.soreaonline.cat/) normalmente.
+2. Abre las DevTools del navegador (F12).
+3. Ve a la pestaña "Application" o "Almacenamiento" y busca la cookie `JSESSIONID`.
+4. Copia el valor y pégalo en la configuración de la integración en Home Assistant.
+
+**Nota:** Cuando la sesión expire, deberás repetir el proceso y actualizar la cookie en la configuración.
+
+### Limitaciones
+- La integración con Sorea es experimental y puede romperse si la web cambia.
+- El login no es automático, depende de la cookie manual.
+- Si tienes problemas, abre un Issue y comparte detalles técnicos para mejorar el soporte.
 
 Puedes ver el 🚰 consumo de agua que has hecho directamente en Home Assistant, y con esa información también puedes crear tus propias automatizaciones y avisos :)
 
 Si te gusta el proyecto, dale a ⭐ **Star** ! 😊
 
-## :warning: NOTA: Login con usuario desactivado (CAPTCHA)
+
+## :warning: NOTA: Login con usuario desactivado (CAPTCHA) en Agbar
 
 Inicio del problema: Anterior a `2023-01-23`
 Última actualización: `2024-03-10`
 
-La API requiere comprobar la petición de login via CAPTCHA.
+
+La API de Agbar requiere comprobar la petición de login via CAPTCHA.
 Se puede iniciar sesión pasando un Token OAuth manualmente.
 Busca la 🍪 cookie `ofexTokenJwt` y copia el valor.
 El token dura 1h.
