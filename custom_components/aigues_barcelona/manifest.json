@@ -1,6 +1,7 @@
 {
   "domain": "aigues_barcelona",
-  "name": "Aigues de Barcelona",
+  "name": "Aigües de Barcelona y Sorea",
+  "description": "Integración para Home Assistant que permite consultar consumos, contratos y facturas de Aigües de Barcelona y Sorea.",
   "codeowners": [
     "@duhow"
   ],
