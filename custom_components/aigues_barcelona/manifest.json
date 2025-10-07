@@ -3,17 +3,17 @@
   "name": "Aigües de Barcelona y Sorea",
   "description": "Integración para Home Assistant que permite consultar consumos, contratos y facturas de Aigües de Barcelona y Sorea.",
   "codeowners": [
-    "@duhow"
+    "@diamant-x"
   ],
   "config_flow": true,
   "dependencies": [
     "http",
     "recorder"
   ],
-  "documentation": "https://github.com/duhow/hass-aigues-barcelona/tree/master",
+  "documentation": "https://github.com/diamant-x/hass-aigues-barcelona/tree/master",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/duhow/hass-aigues-barcelona/issues",
+  "issue_tracker": "https://github.com/diamant-x/hass-aigues-barcelona/issues",
   "requirements": [],
   "version": "0.4.7"
 }
